@@ -29,8 +29,7 @@ type UserCredential = {
 
 type UserRecord = {
   id: string;
-  email: string;
-  name?: string;
+  walletAddress: string;
   currentChallenge?: string;
   credentials: UserCredential[];
 };
@@ -41,36 +40,40 @@ const rpName = "7702 Pay Demo";
 const rpID = "localhost";
 const origin = "http://localhost:5173";
 
-function getOrCreateUser(email: string, name?: string) {
-  const existing = users.get(email);
+function normalizeWalletAddress(walletAddress: string) {
+  return walletAddress.toLowerCase();
+}
+
+function getOrCreateUser(walletAddress: string) {
+  const normalizedAddress = normalizeWalletAddress(walletAddress);
+  const existing = users.get(normalizedAddress);
   if (existing) return existing;
 
   const next: UserRecord = {
     id: crypto.randomUUID(),
-    email,
-    name,
+    walletAddress: normalizedAddress,
     credentials: [],
   };
 
-  users.set(email, next);
+  users.set(normalizedAddress, next);
   return next;
 }
 
 app.post("/api/webauthn/register/options", async (req, res) => {
   try {
-    const { email, name } = req.body as { email?: string; name?: string };
+    const { walletAddress } = req.body as { walletAddress?: string };
 
-    if (!email) {
-      return res.status(400).json({ error: "email is required" });
+    if (!walletAddress) {
+      return res.status(400).json({ error: "walletAddress is required" });
     }
 
-    const user = getOrCreateUser(email, name);
+    const user = getOrCreateUser(walletAddress);
 
     const options = await generateRegistrationOptions({
       rpName,
       rpID,
-      userName: user.email,
-      userDisplayName: user.name ?? user.email,
+      userName: user.walletAddress,
+      userDisplayName: user.walletAddress,
       userID: new TextEncoder().encode(user.id),
       attestationType: "none",
       authenticatorSelection: {
@@ -94,18 +97,20 @@ app.post("/api/webauthn/register/options", async (req, res) => {
 
 app.post("/api/webauthn/register/verify", async (req, res) => {
   try {
-    const { email, credential } = req.body as {
-      email?: string;
+    const { walletAddress, credential } = req.body as {
+      walletAddress?: string;
       credential?: Parameters<typeof verifyRegistrationResponse>[0]["response"];
     };
 
-    if (!email || !credential) {
+    if (!walletAddress || !credential) {
       return res
         .status(400)
-        .json({ error: "email and credential are required" });
+        .json({ error: "walletAddress and credential are required" });
     }
 
-    const user = users.get(email);
+    const normalizedAddress = normalizeWalletAddress(walletAddress);
+    const user = users.get(normalizedAddress);
+
     if (!user || !user.currentChallenge) {
       return res.status(400).json({ error: "user or challenge not found" });
     }
@@ -150,13 +155,15 @@ app.post("/api/webauthn/register/verify", async (req, res) => {
 
 app.post("/api/webauthn/authenticate/options", async (req, res) => {
   try {
-    const { email } = req.body as { email?: string };
+    const { walletAddress } = req.body as { walletAddress?: string };
 
-    if (!email) {
-      return res.status(400).json({ error: "email is required" });
+    if (!walletAddress) {
+      return res.status(400).json({ error: "walletAddress is required" });
     }
 
-    const user = users.get(email);
+    const normalizedAddress = normalizeWalletAddress(walletAddress);
+    const user = users.get(normalizedAddress);
+
     if (!user || user.credentials.length === 0) {
       return res.status(400).json({ error: "registered passkey not found" });
     }
@@ -183,20 +190,22 @@ app.post("/api/webauthn/authenticate/options", async (req, res) => {
 
 app.post("/api/webauthn/authenticate/verify", async (req, res) => {
   try {
-    const { email, credential } = req.body as {
-      email?: string;
+    const { walletAddress, credential } = req.body as {
+      walletAddress?: string;
       credential?: Parameters<
         typeof verifyAuthenticationResponse
       >[0]["response"];
     };
 
-    if (!email || !credential) {
+    if (!walletAddress || !credential) {
       return res
         .status(400)
-        .json({ error: "email and credential are required" });
+        .json({ error: "walletAddress and credential are required" });
     }
 
-    const user = users.get(email);
+    const normalizedAddress = normalizeWalletAddress(walletAddress);
+    const user = users.get(normalizedAddress);
+
     if (!user || !user.currentChallenge) {
       return res.status(400).json({ error: "user or challenge not found" });
     }
@@ -204,6 +213,7 @@ app.post("/api/webauthn/authenticate/verify", async (req, res) => {
     const dbCredential = user.credentials.find(
       (cred) => cred.id === credential.id,
     );
+
     if (!dbCredential) {
       return res.status(400).json({ ok: false, error: "credential not found" });
     }

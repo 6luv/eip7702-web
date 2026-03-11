@@ -1,11 +1,10 @@
 import { createBrowserRouter } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import HomePage from "../pages/HomePage";
-import LoginPage from "../pages/LoginPage";
 import RegisterPasskeyPage from "../pages/RegisterPasskeyPage";
 import PaymentPage from "../pages/PaymentPage";
 import SettingsPage from "../pages/SettingsPage";
-import RequireAuth from "../components/auth/RequireAuth";
+import RequireWallet from "../components/auth/RequireWallet";
 
 export const router = createBrowserRouter([
   {
@@ -13,21 +12,20 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <HomePage /> },
-      { path: "login", element: <LoginPage /> },
       {
         path: "register-passkey",
         element: (
-          <RequireAuth>
+          <RequireWallet>
             <RegisterPasskeyPage />
-          </RequireAuth>
+          </RequireWallet>
         ),
       },
       {
         path: "payment",
         element: (
-          <RequireAuth>
+          <RequireWallet>
             <PaymentPage />
-          </RequireAuth>
+          </RequireWallet>
         ),
       },
       { path: "settings", element: <SettingsPage /> },

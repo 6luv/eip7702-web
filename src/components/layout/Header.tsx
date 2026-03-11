@@ -5,7 +5,6 @@ export default function Header() {
 
   const menus = [
     { to: "/", label: "Home" },
-    { to: "/login", label: "Login" },
     { to: "/register-passkey", label: "Passkey" },
     { to: "/payment", label: "Payment" },
     { to: "/settings", label: "Settings" },
